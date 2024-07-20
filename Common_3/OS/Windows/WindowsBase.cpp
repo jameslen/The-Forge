@@ -80,7 +80,7 @@ static UIComponent* pReloadShaderComponent = NULL;
 static UIWidget*    pSwitchComponentLabelWidget = NULL;
 static UIWidget*    pSelectApUIWidget = NULL;
 static UIWidget*    pSelectGraphicCardWidget = NULL;
-static uint32_t     gSelectedApiIndex = 0;
+static uint32_t     gSelectedApiIndex = 1;
 
 // PickRenderingAPI.cpp
 extern PlatformParameters gPlatformParameters;

@@ -3019,7 +3019,7 @@ bool initInputSystem(InputSystemDesc* pDesc)
     }
 #endif
 
-    addDefaultActionMappings();
+    //addDefaultActionMappings();
 
     return success;
 #else

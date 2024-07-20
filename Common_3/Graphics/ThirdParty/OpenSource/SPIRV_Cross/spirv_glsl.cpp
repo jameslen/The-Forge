@@ -4575,8 +4575,8 @@ void CompilerGLSL::force_temporary_and_recompile(uint32_t id)
 uint32_t CompilerGLSL::consume_temporary_in_precision_context(uint32_t type_id, uint32_t id, Options::Precision precision)
 {
 	// Constants do not have innate precision.
-	auto handle_type = ir.ids[id].get_type();
-	if (handle_type == TypeConstant || handle_type == TypeConstantOp || handle_type == TypeUndef)
+	auto promise_type = ir.ids[id].get_type();
+	if (promise_type == TypeConstant || promise_type == TypeConstantOp || promise_type == TypeUndef)
 		return id;
 
 	// Ignore anything that isn't 32-bit values.
@@ -11117,8 +11117,8 @@ CompilerGLSL::Options::Precision CompilerGLSL::analyze_expression_precision(cons
 	{
 		uint32_t arg = args[i];
 
-		auto handle_type = ir.ids[arg].get_type();
-		if (handle_type == TypeConstant || handle_type == TypeConstantOp || handle_type == TypeUndef)
+		auto promise_type = ir.ids[arg].get_type();
+		if (promise_type == TypeConstant || promise_type == TypeConstantOp || promise_type == TypeUndef)
 			continue;
 
 		if (has_decoration(arg, DecorationRelaxedPrecision))

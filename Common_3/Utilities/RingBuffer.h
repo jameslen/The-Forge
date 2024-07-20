@@ -90,7 +90,7 @@ typedef struct GpuCmdRing
     uint32_t   mCmdPerPoolCount;
 } GpuCmdRing;
 
-static inline void addGPURingBuffer(Renderer* pRenderer, const BufferDesc* pBufferDesc, GPURingBuffer* pRingBuffer)
+inline void addGPURingBuffer(Renderer* pRenderer, const BufferDesc* pBufferDesc, GPURingBuffer* pRingBuffer)
 {
     *pRingBuffer = {};
     pRingBuffer->pRenderer = pRenderer;
@@ -103,7 +103,7 @@ static inline void addGPURingBuffer(Renderer* pRenderer, const BufferDesc* pBuff
     addResource(&loadDesc, NULL);
 }
 
-static inline void addUniformGPURingBuffer(Renderer* pRenderer, uint32_t requiredUniformBufferSize, GPURingBuffer* pRingBuffer,
+inline void addUniformGPURingBuffer(Renderer* pRenderer, uint32_t requiredUniformBufferSize, GPURingBuffer* pRingBuffer,
                                            bool const ownMemory = false, ResourceMemoryUsage memoryUsage = RESOURCE_MEMORY_USAGE_CPU_TO_GPU)
 {
     *pRingBuffer = {};
@@ -131,11 +131,11 @@ static inline void addUniformGPURingBuffer(Renderer* pRenderer, uint32_t require
     addResource(&loadDesc, NULL);
 }
 
-static inline void removeGPURingBuffer(GPURingBuffer* pRingBuffer) { removeResource(pRingBuffer->pBuffer); }
+inline void removeGPURingBuffer(GPURingBuffer* pRingBuffer) { removeResource(pRingBuffer->pBuffer); }
 
-static inline void resetGPURingBuffer(GPURingBuffer* pRingBuffer) { pRingBuffer->mCurrentBufferOffset = 0; }
+inline void resetGPURingBuffer(GPURingBuffer* pRingBuffer) { pRingBuffer->mCurrentBufferOffset = 0; }
 
-static inline GPURingBufferOffset getGPURingBufferOffset(GPURingBuffer* pRingBuffer, uint32_t memoryRequirement, uint32_t alignment = 0)
+inline GPURingBufferOffset getGPURingBufferOffset(GPURingBuffer* pRingBuffer, uint32_t memoryRequirement, uint32_t alignment = 0)
 {
     uint32_t alignedSize = round_up(memoryRequirement, alignment ? alignment : pRingBuffer->mBufferAlignment);
 
@@ -156,7 +156,7 @@ static inline GPURingBufferOffset getGPURingBufferOffset(GPURingBuffer* pRingBuf
     return ret;
 }
 
-static inline void addGpuCmdRing(Renderer* pRenderer, const GpuCmdRingDesc* pDesc, GpuCmdRing* pOut)
+inline void addGpuCmdRing(Renderer* pRenderer, const GpuCmdRingDesc* pDesc, GpuCmdRing* pOut)
 {
     ASSERT(pDesc->mPoolCount <= MAX_GPU_CMD_POOLS_PER_RING);
     ASSERT(pDesc->mCmdPerPoolCount <= MAX_GPU_CMDS_PER_POOL);
@@ -195,7 +195,7 @@ static inline void addGpuCmdRing(Renderer* pRenderer, const GpuCmdRingDesc* pDes
     pOut->mFenceIndex = UINT32_MAX;
 }
 
-static inline void removeGpuCmdRing(Renderer* pRenderer, GpuCmdRing* pRing)
+inline void removeGpuCmdRing(Renderer* pRenderer, GpuCmdRing* pRing)
 {
     for (uint32_t pool = 0; pool < pRing->mPoolCount; ++pool)
     {
@@ -216,7 +216,7 @@ static inline void removeGpuCmdRing(Renderer* pRenderer, GpuCmdRing* pRing)
     *pRing = {};
 }
 
-static inline GpuCmdRingElement getNextGpuCmdRingElement(GpuCmdRing* pRing, bool cyclePool, uint32_t cmdCount)
+inline GpuCmdRingElement getNextGpuCmdRingElement(GpuCmdRing* pRing, bool cyclePool, uint32_t cmdCount)
 {
     if (cyclePool)
     {
