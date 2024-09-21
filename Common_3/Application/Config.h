@@ -238,7 +238,7 @@ COMPILE_ASSERT(sizeof(ssize_t) == sizeof(int64_t));
 // Whitelist of compiler versions
 #if (_MSC_VER == 1929) // VS 2019 all VC++ compilers
 #else
-#pragma message("Bad Visual Studio version: (" QUOTE(_MSC_VER) " " QUOTE(_MSC_FULL_VER) " " QUOTE(_MSC_BUILD) ").")
+//#pragma message("Bad Visual Studio version: (" QUOTE(_MSC_VER) " " QUOTE(_MSC_FULL_VER) " " QUOTE(_MSC_BUILD) ").")
 //#error "Bad Visual Studio version"
 #endif
 
