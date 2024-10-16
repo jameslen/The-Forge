@@ -911,7 +911,9 @@ bool initMemAlloc(const char* appName)
     // However avoid any undefined behaviour we create a real handle from GetCurrentProcess that we can
     // later use with SymInitialize.
     HANDLE currentProcess = GetCurrentProcess();
-    DuplicateHandle(currentProcess, currentProcess, currentProcess, &gProcessHandle, 0, true, DUPLICATE_SAME_ACCESS);
+
+    if (!gProcessHandle)
+        DuplicateHandle(currentProcess, currentProcess, currentProcess, &gProcessHandle, 0, true, DUPLICATE_SAME_ACCESS);
 #endif
 #endif
     return true;
@@ -923,7 +925,11 @@ void exitMemAlloc(void)
 
 #if MMGR_BACKTRACE
 #ifdef _WIN32
-    CloseHandle(gProcessHandle);
+    if (gProcessHandle)
+    {
+        CloseHandle(gProcessHandle);
+        gProcessHandle = NULL;
+    }
 #endif
 #endif
 }
