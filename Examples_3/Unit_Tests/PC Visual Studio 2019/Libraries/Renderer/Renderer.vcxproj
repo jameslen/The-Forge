@@ -129,13 +129,7 @@
       <AdditionalOptions>/ignore:4099</AdditionalOptions>
     </Link>
     <Lib>
-      <AdditionalDependencies>
-        dxcompiler.lib;
-        WinPixEventRuntime.lib;
-        SpirvTools.lib;
-        amd_ags_x64.lib;
-        nvapi64.lib;
-      </AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;WinPixEventRuntime.lib;SpirvTools.lib;amd_ags_x64.lib;nvapi64.lib</AdditionalDependencies>
     </Lib>
     <Lib>
       <AdditionalLibraryDirectories>
@@ -177,13 +171,7 @@
       <AdditionalOptions>/ignore:4099</AdditionalOptions>
     </Link>
     <Lib>
-      <AdditionalDependencies>
-        amd_ags_x64.lib;
-        nvapi64.lib;
-        dxcompiler.lib;
-        WinPixEventRuntime.lib;
-        SpirvTools.lib;
-      </AdditionalDependencies>
+      <AdditionalDependencies>amd_ags_x64.lib;nvapi64.lib;dxcompiler.lib;WinPixEventRuntime.lib;</AdditionalDependencies>
     </Lib>
     <Lib>
       <AdditionalLibraryDirectories>
