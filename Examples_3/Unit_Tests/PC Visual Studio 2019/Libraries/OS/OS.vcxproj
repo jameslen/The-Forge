@@ -16,7 +16,6 @@
     <ClCompile Include="..\..\..\..\..\Common_3\Application\Profiler\ProfilerBase.cpp" />
     <ClCompile Include="..\..\..\..\..\Common_3\Application\Screenshot.cpp" />
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui.cpp" />
-    <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_widgets.cpp" />
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_tables.cpp" />

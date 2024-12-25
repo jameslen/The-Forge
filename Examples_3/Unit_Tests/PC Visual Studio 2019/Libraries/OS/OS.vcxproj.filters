@@ -186,9 +186,6 @@
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui.cpp">
       <Filter>Common_3\Application\ThirdParty\OpenSource\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_demo.cpp">
-      <Filter>Common_3\Application\ThirdParty\OpenSource\imgui</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\..\..\Common_3\Application\ThirdParty\OpenSource\imgui\imgui_draw.cpp">
       <Filter>Common_3\Application\ThirdParty\OpenSource\imgui</Filter>
     </ClCompile>

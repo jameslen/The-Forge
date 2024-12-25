@@ -537,7 +537,7 @@ uint32_t addImguiFont(void* pFontBuffer, uint32_t fontBufferSize, void* pFontGly
     arrpush(pUserInterface->pCachedFontsArr, newCachedFont);
 
     ptrdiff_t fontTextureIndex = arrlen(pUserInterface->pCachedFontsArr) - 1;
-    io.Fonts->TexID = (void*)fontTextureIndex;
+    io.Fonts->TexID = fontTextureIndex;
 
     return (uint32_t)fontTextureIndex;
 }
@@ -1329,7 +1329,7 @@ static void processDebugTexturesWidget(UIWidget* pWidget)
         ptrdiff_t id = pUserInterface->mMaxUIFonts + ((ptrdiff_t)pUserInterface->frameIdx * pUserInterface->mMaxDynamicUIUpdatesPerBatch +
                                                       pUserInterface->mDynamicTexturesCount++);
         hmput(pUserInterface->pTextureHashmap, id, texture);
-        ImGui::Image((void*)id, pOriginalWidget->mTextureDisplaySize);
+        ImGui::Image(id, pOriginalWidget->mTextureDisplaySize);
         ImGui::SameLine();
     }
 
@@ -1590,8 +1590,7 @@ static void processColumnWidget(UIWidget* pWidget)
     ColumnWidget* pOriginalWidget = (ColumnWidget*)(pWidget->pWidget);
 
     // Test a simple 4 col table.
-    ImGui::BeginColumns(pWidget->mLabel, (int)pOriginalWidget->mWidgetsCount,
-                        ImGuiColumnsFlags_NoResize | ImGuiColumnsFlags_NoForceWithinWindow);
+    ImGui::BeginColumns(pWidget->mLabel, (int)pOriginalWidget->mWidgetsCount);
 
     for (uint32_t i = 0; i < pOriginalWidget->mWidgetsCount; ++i)
     {
@@ -2631,8 +2630,8 @@ void platformUpdateUserInterface(float deltaTime)
 
     if (pUserInterface->mActive)
     {
-        if (guiUpdate.showDemoWindow)
-            ImGui::ShowDemoWindow();
+        //if (guiUpdate.showDemoWindow)
+        //    ImGui::ShowDemoWindow();
 
         pUserInterface->mLastUpdateCount = guiUpdate.componentCount;
 

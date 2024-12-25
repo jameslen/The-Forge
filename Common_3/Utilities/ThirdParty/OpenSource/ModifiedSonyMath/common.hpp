@@ -569,7 +569,7 @@ inline bool operator!=(const float3 &a, const float3 &b)
 //----------------------------------------------------------------------------
 struct float4
 {
-	float4()														 : float4(0, 0, 0, 0) {}
+	constexpr float4()												 : float4(0, 0, 0, 0) {}
 	constexpr float4(float x, float y, float z, float w)             : x(x), y(y), z(z), w(w) {}
 	constexpr float4(int32_t x, int32_t y, int32_t z, int32_t w)     : x((float)x), y((float)y), z((float)z), w((float)w) {}
 	constexpr float4(uint32_t x, uint32_t y, uint32_t z, uint32_t w) : x((float)x), y((float)y), z((float)z), w((float)w) {}
