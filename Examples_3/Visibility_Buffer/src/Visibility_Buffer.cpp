@@ -265,7 +265,7 @@ typedef struct AppSettings
     DisplayColorRange  mDisplayColorRange = ColorRange_RGB;
     DisplaySignalRange mDisplaySignalRange = Display_SIGNAL_RANGE_FULL;
 
-    SampleCount mMsaaLevel = SAMPLE_COUNT_2;
+    SampleCount mMsaaLevel = SAMPLE_COUNT_1;
     uint32_t    mMsaaIndex = (uint32_t)log2((uint32_t)mMsaaLevel);
     uint32_t    mMsaaIndexRequested = mMsaaIndex;
 
@@ -625,18 +625,6 @@ class Visibility_Buffer: public IApp
 public:
     bool Init()
     {
-        // FILE PATHS
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_SHADER_BINARIES, "CompiledShaders");
-        fsSetPathForResourceDir(pSystemFileIO, RM_DEBUG, RD_PIPELINE_CACHE, "PipelineCaches");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_GPU_CONFIG, "GPUCfg");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_TEXTURES, "Textures");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_OTHER_FILES, "");
-        fsSetPathForResourceDir(pSystemFileIO, RM_DEBUG, RD_SCREENSHOTS, "Screenshots");
-        fsSetPathForResourceDir(pSystemFileIO, RM_DEBUG, RD_DEBUG, "Debug");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_FONTS, "Fonts");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_MESHES, "Meshes");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_SCRIPTS, "Scripts");
-
         threadSystemInit(&gThreadSystem, &gThreadSystemInitDescDefault);
 
         // Camera Walking
@@ -672,7 +660,7 @@ public:
             return false;
         }
 
-        if (!pRenderer->pGpu->mSettings.mPrimitiveIdSupported)
+        if (!pRenderer->pGpu->mPrimitiveIdSupported)
         {
             ShowUnsupportedMessage("Visibility Buffer does not run on this device. PrimitiveID is not supported");
             return false;
@@ -1140,7 +1128,7 @@ public:
             luaRegisterWidget(uiAddComponentWidget(pGuiWindow, "Draw Debug Targets", &checkbox, WIDGET_TYPE_CHECKBOX));
             /************************************************************************/
             /************************************************************************/
-            if (pRenderer->pGpu->mSettings.mHDRSupported)
+            if (pRenderer->pGpu->mHDRSupported)
             {
                 LabelWidget labelWidget = {};
                 pOutputSupportsHDRWidget = uiAddComponentWidget(pGuiWindow, "Output Supports HDR", &labelWidget, WIDGET_TYPE_LABEL);
@@ -1376,6 +1364,18 @@ public:
                 {
                     gAppSettings.mMsaaIndex = gAppSettings.mMsaaIndexRequested;
                     gAppSettings.mMsaaLevel = (SampleCount)(1 << gAppSettings.mMsaaIndex);
+                    while (gAppSettings.mMsaaIndex > 0)
+                    {
+                        if ((pRenderer->pGpu->mFrameBufferSamplesCount & gAppSettings.mMsaaLevel) == 0)
+                        {
+                            gAppSettings.mMsaaIndex--;
+                            gAppSettings.mMsaaLevel = (SampleCount)(gAppSettings.mMsaaLevel / 2);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -2120,7 +2120,7 @@ public:
         TinyImageFormat hdrFormat = getSupportedSwapchainFormat(pRenderer, &swapChainDesc, COLOR_SPACE_P2020);
         const bool      wantsHDR = OUTPUT_MODE_P2020 == gAppSettings.mOutputMode;
         const bool      supportsHDR = TinyImageFormat_UNDEFINED != hdrFormat;
-        if (pRenderer->pGpu->mSettings.mHDRSupported)
+        if (pRenderer->pGpu->mHDRSupported)
         {
             strcpy(pOutputSupportsHDRWidget->mLabel, supportsHDR ? "Current Output Supports HDR" : "Current Output Does Not Support HDR");
         }

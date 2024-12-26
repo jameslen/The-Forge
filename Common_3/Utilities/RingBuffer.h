@@ -109,7 +109,7 @@ inline void addUniformGPURingBuffer(Renderer* pRenderer, uint32_t requiredUnifor
     *pRingBuffer = {};
     pRingBuffer->pRenderer = pRenderer;
 
-    const uint32_t uniformBufferAlignment = (uint32_t)pRenderer->pGpu->mSettings.mUniformBufferAlignment;
+    const uint32_t uniformBufferAlignment = (uint32_t)pRenderer->pGpu->mUniformBufferAlignment;
     const uint32_t maxUniformBufferSize = requiredUniformBufferSize;
     pRingBuffer->mBufferAlignment = uniformBufferAlignment;
     pRingBuffer->mMaxBufferSize = maxUniformBufferSize;
@@ -175,11 +175,11 @@ static inline void initGpuCmdRing(Renderer* pRenderer, const GpuCmdRingDesc* pDe
         cmdDesc.pPool = pOut->pCmdPools[pool];
         for (uint32_t cmd = 0; cmd < pDesc->mCmdPerPoolCount; ++cmd)
         {
-#ifdef ENABLE_GRAPHICS_DEBUG
+#ifdef ENABLE_GRAPHICS_DEBUG_ANNOTATION
             static char buffer[MAX_DEBUG_NAME_LENGTH];
             snprintf(buffer, sizeof(buffer), "GpuCmdRing Pool %u Cmd %u", pool, cmd);
             cmdDesc.pName = buffer;
-#endif // ENABLE_GRAPHICS_DEBUG
+#endif // ENABLE_GRAPHICS_DEBUG_ANNOTATION
             initCmd(pRenderer, &cmdDesc, &pOut->pCmds[pool][cmd]);
 
             if (pDesc->mAddSyncPrimitives)

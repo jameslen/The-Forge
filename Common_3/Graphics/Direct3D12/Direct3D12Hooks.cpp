@@ -59,7 +59,7 @@ void hook_enable_debug_layer(const RendererContextDesc* pDesc, RendererContext* 
 {
     UNREF_PARAM(pDesc);
     UNREF_PARAM(pContext);
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_VALIDATION)
     pContext->mDx.pDebug->EnableDebugLayer();
 
     ID3D12Debug1* pDebug1 = NULL;
@@ -109,7 +109,19 @@ HRESULT hook_create_compute_pipeline_state(ID3D12Device* pDevice, const D3D12_CO
     return pDevice->CreateComputePipelineState(pDesc, IID_PPV_ARGS(ppPipeline));
 }
 
-void hook_remove_pipeline(Pipeline* pPipeline) { SAFE_RELEASE(pPipeline->mDx.pPipelineState); }
+void hook_remove_pipeline(Pipeline* pPipeline)
+{
+#if defined(ENABLE_WORKGRAPH)
+    if (PIPELINE_TYPE_WORKGRAPH == pPipeline->mDx.mType)
+    {
+        SAFE_RELEASE(pPipeline->mDx.pStateObject);
+    }
+    else
+#endif
+    {
+        SAFE_RELEASE(pPipeline->mDx.pPipelineState);
+    }
+}
 
 HRESULT hook_add_special_resource(Renderer* pRenderer, const D3D12_RESOURCE_DESC* pDesc, const D3D12_CLEAR_VALUE*,
                                   D3D12_RESOURCE_STATES state, uint32_t flags, Buffer* pBuffer)
@@ -286,7 +298,7 @@ HRESULT hook_signal(Queue* pQueue, ID3D12Fence* pFence, uint64_t fenceValue) { r
 
 HRESULT hook_signal_flush(Queue* pQueue, ID3D12Fence* pFence, uint64_t fenceValue) { return hook_signal(pQueue, pFence, fenceValue); }
 
-extern void hook_fill_gpu_desc(ID3D12Device* pDevice, D3D_FEATURE_LEVEL featureLevel, GpuDesc* pInOutDesc)
+extern void hook_fill_gpu_desc(ID3D12Device* pDevice, D3D_FEATURE_LEVEL featureLevel, DXGPUInfo* pInOutDesc)
 {
     // Query the level of support of Shader Model.
     D3D12_FEATURE_DATA_D3D12_OPTIONS  featureData = {};
@@ -295,7 +307,7 @@ extern void hook_fill_gpu_desc(ID3D12Device* pDevice, D3D_FEATURE_LEVEL featureL
     pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS, &featureData, sizeof(featureData));
     pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &featureData1, sizeof(featureData1));
 
-    GpuDesc&           gpuDesc = *pInOutDesc;
+    DXGPUInfo&         gpuDesc = *pInOutDesc;
     DXGI_ADAPTER_DESC3 desc = {};
     gpuDesc.pGpu->GetDesc3(&desc);
 

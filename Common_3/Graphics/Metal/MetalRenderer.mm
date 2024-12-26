@@ -579,7 +579,7 @@ void cmdBindPushConstants(Cmd* pCmd, RootSignature* pRootSignature, uint32_t par
     util_bind_push_constant(pCmd, pDesc, pConstants);
 }
 
-#if defined(ENABLE_GRAPHICS_DEBUG) || defined(PVS_STUDIO)
+#if defined(ENABLE_GRAPHICS_RUNTIME_CHECK) || defined(PVS_STUDIO)
 #define VALIDATE_DESCRIPTOR(descriptor, msgFmt, ...)                           \
     if (!VERIFYMSG((descriptor), "%s : " msgFmt, __FUNCTION__, ##__VA_ARGS__)) \
     {                                                                          \
@@ -707,7 +707,7 @@ void addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, Descr
         ShaderStage shaderStages =
             (pRootSignature->mPipelineType == PIPELINE_TYPE_COMPUTE ? SHADER_STAGE_COMP : (SHADER_STAGE_VERT | SHADER_STAGE_FRAG));
 
-#ifdef ENABLE_GRAPHICS_DEBUG
+#ifdef ENABLE_GRAPHICS_VALIDATION
         // to circumvent a metal validation bug which overwrites the arguments array, we make a local copy
         NSMutableArray<MTLArgumentDescriptor*>* descriptorsCopy = [[NSMutableArray alloc] init];
         for (MTLArgumentDescriptor* myArrayElement in descriptors)
@@ -734,7 +734,8 @@ void addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, Descr
         bufferDesc.mAlignment = 256;
         bufferDesc.mSize = argumentBufferSize * pDesc->mMaxSets;
         bufferDesc.mMemoryUsage = RESOURCE_MEMORY_USAGE_CPU_TO_GPU;
-#if defined(ENABLE_GRAPHICS_DEBUG)
+
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
         char debugName[FS_MAX_PATH] = {};
         snprintf(debugName, sizeof debugName, "Argument Buffer %u", pDesc->mUpdateFrequency);
         bufferDesc.pName = debugName;
@@ -829,7 +830,7 @@ void addDescriptorSet(Renderer* pRenderer, const DescriptorSetDesc* pDesc, Descr
                 {
                     if (type == DESCRIPTOR_TYPE_INDIRECT_COMMAND_BUFFER)
                     {
-                        if (pRenderer->pGpu->mSettings.mIndirectCommandBuffer)
+                        if (pRenderer->pGpu->mIndirectCommandBuffer)
                         {
                             for (uint32_t j = 0; j < arrayCount; ++j)
                             {
@@ -1133,7 +1134,7 @@ void updateDescriptorSet(Renderer* pRenderer, uint32_t index, DescriptorSet* pDe
                 {
                     if (type == DESCRIPTOR_TYPE_INDIRECT_COMMAND_BUFFER)
                     {
-                        if (pRenderer->pGpu->mSettings.mIndirectCommandBuffer)
+                        if (pRenderer->pGpu->mIndirectCommandBuffer)
                         {
                             BindICBDescriptor(pDescriptorSet, index, pDesc, arrayStart, arrayCount, pParam);
                         }
@@ -1156,7 +1157,7 @@ void updateDescriptorSet(Renderer* pRenderer, uint32_t index, DescriptorSet* pDe
                             }
                         }
 
-                        if (pRenderer->pGpu->mSettings.mIndirectCommandBuffer && pParam->mBindICB)
+                        if (pRenderer->pGpu->mIndirectCommandBuffer && pParam->mBindICB)
                         {
                             const uint32_t        paramIndex = pParam->mBindByIndex ? pParam->mICBIndex : UINT32_MAX;
                             const DescriptorInfo* pDesc = NULL;
@@ -1189,7 +1190,7 @@ void updateDescriptorSet(Renderer* pRenderer, uint32_t index, DescriptorSet* pDe
                         pData->pOffsets[j] = pParam->ppBuffers[j]->mOffset + (pParam->pRanges ? pParam->pRanges[j].mOffset : 0);
                     }
 
-                    if (pRenderer->pGpu->mSettings.mIndirectCommandBuffer)
+                    if (pRenderer->pGpu->mIndirectCommandBuffer)
                     {
                         if (type == DESCRIPTOR_TYPE_INDIRECT_COMMAND_BUFFER)
                         {
@@ -1504,7 +1505,7 @@ void add_default_resources(Renderer* pRenderer)
     TextureDesc textureCubeArrayDesc = textureCubeDesc;
     textureCubeArrayDesc.mArraySize *= 2;
     textureCubeArrayDesc.pName = "DefaultTexture_CUBE_ARRAY";
-    if (pRenderer->pGpu->mSettings.mCubeMapTextureArraySupported)
+    if (pRenderer->pGpu->mCubeMapTextureArraySupported)
     {
         addTexture(pRenderer, &textureCubeArrayDesc, &pDefaultTextures[TEXTURE_DIM_CUBE_ARRAY]);
     }
@@ -1743,7 +1744,7 @@ void vkGetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice, VkPhys
 
     constexpr uint32_t sharedHeapIndex = VK_MAX_MEMORY_HEAPS - 1;
 
-    pMemoryProperties->memoryHeaps[0].size = physicalDevice->pGpu->mSettings.mVRAM;
+    pMemoryProperties->memoryHeaps[0].size = physicalDevice->pGpu->mVRAM;
     pMemoryProperties->memoryHeaps[0].flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
 
 #ifndef TARGET_APPLE_ARM64
@@ -1778,7 +1779,7 @@ VkResult vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocate
     UNREF_PARAM(cacheMode);
     UNREF_PARAM(storageMode);
 
-    if (device->pGpu->mSettings.mPlacementHeaps)
+    if (device->pGpu->mPlacementHeaps)
     {
         [heapDesc setType:MTLHeapTypePlacement];
     }
@@ -1797,7 +1798,7 @@ VkResult vkAllocateMemory(VkDevice device, const VkMemoryAllocateInfo* pAllocate
         memset(memory, 0, sizeof(VkDeviceMemory_T));
         memory->pHeap = [device->pDevice newHeapWithDescriptor:heapDesc];
 
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
         switch (pAllocateInfo->memoryTypeIndex)
         {
         case MEMORY_TYPE_GPU_ONLY:
@@ -2032,90 +2033,89 @@ static uint64_t util_get_free_memory()
 }
 #endif
 
-static void QueryGPUSettings(GpuInfo* gpuInfo, GPUSettings* pOutSettings)
+static void QueryGpuDesc(GpuDesc* pGpuDesc)
 {
-    id<MTLDevice> gpu = gpuInfo->pGPU;
+    id<MTLDevice> gpu = pGpuDesc->pGPU;
 
-    setDefaultGPUSettings(pOutSettings);
-    GPUVendorPreset& gpuVendor = pOutSettings->mGpuVendorPreset;
+    setDefaultGPUProperties(pGpuDesc);
+    GPUVendorPreset& gpuVendor = pGpuDesc->mGpuVendorPreset;
     FillGPUVendorPreset(gpu, gpuVendor);
 
 #ifdef TARGET_IOS
 #if defined(ENABLE_OS_PROC_MEMORY)
-    pOutSettings->mVRAM = os_proc_available_memory();
+    pGpuDesc->mVRAM = os_proc_available_memory();
 #endif
 
-    if (pOutSettings->mVRAM <= 0)
+    if (pGpuDesc->mVRAM <= 0)
     {
-        pOutSettings->mVRAM = util_get_free_memory();
-        if (pOutSettings->mVRAM <= 0)
+        pGpuDesc->mVRAM = util_get_free_memory();
+        if (pGpuDesc->mVRAM <= 0)
         {
-            pOutSettings->mVRAM = [[NSProcessInfo processInfo] physicalMemory];
+            pGpuDesc->mVRAM = [[NSProcessInfo processInfo] physicalMemory];
         }
     }
 #else
-    pOutSettings->mVRAM = [gpu recommendedMaxWorkingSetSize];
+    pGpuDesc->mVRAM = [gpu recommendedMaxWorkingSetSize];
 #endif
-    ASSERT(pOutSettings->mVRAM);
+    ASSERT(pGpuDesc->mVRAM);
 
-    pOutSettings->mUniformBufferAlignment = 256;
-    pOutSettings->mUploadBufferAlignment = 1;
-    pOutSettings->mUploadBufferTextureAlignment = 16;
-    pOutSettings->mUploadBufferTextureRowAlignment = 1;
-    pOutSettings->mMaxVertexInputBindings =
-        MAX_VERTEX_BINDINGS;                       // there are no special vertex buffers for input in Metal, only regular buffers
-    pOutSettings->mMultiDrawIndirect = false;      // multi draw indirect is not supported on Metal: only single draw indirect
-    pOutSettings->mMultiDrawIndirectCount = false; // multi draw indirect is not supported on Metal: only single draw indirect
-    pOutSettings->mRootConstant = true;
-    pOutSettings->mIndirectRootConstant = false;
-    pOutSettings->mBuiltinDrawID = false;
-    pOutSettings->mPrimitiveIdPsSupported = true;
+    pGpuDesc->mUniformBufferAlignment = 256;
+    pGpuDesc->mUploadBufferAlignment = 1;
+    pGpuDesc->mUploadBufferTextureAlignment = 16;
+    pGpuDesc->mUploadBufferTextureRowAlignment = 1;
+    pGpuDesc->mMaxVertexInputBindings = MAX_VERTEX_BINDINGS; // there are no special vertex buffers for input in Metal, only regular buffers
+    pGpuDesc->mMultiDrawIndirect = false;                    // multi draw indirect is not supported on Metal: only single draw indirect
+    pGpuDesc->mMultiDrawIndirectCount = false;               // multi draw indirect is not supported on Metal: only single draw indirect
+    pGpuDesc->mRootConstant = true;
+    pGpuDesc->mIndirectRootConstant = false;
+    pGpuDesc->mBuiltinDrawID = false;
+    pGpuDesc->mPrimitiveIdPsSupported = true;
     if (MTL_HDR_SUPPORTED)
     {
-        pOutSettings->mHDRSupported = true;
+        pGpuDesc->mHDRSupported = true;
     }
 #if defined(TARGET_IOS)
-    pOutSettings->mMaxBoundTextures = 31;
-    pOutSettings->mDrawIndexVertexOffsetSupported = false;
+    pGpuDesc->mMaxBoundTextures = 31;
+    pGpuDesc->mDrawIndexVertexOffsetSupported = false;
     BOOL isiOSAppOnMac = [NSProcessInfo processInfo].isiOSAppOnMac;
-    pOutSettings->mHeaps = !isiOSAppOnMac;
-    pOutSettings->mPlacementHeaps = !isiOSAppOnMac;
+    pGpuDesc->mHeaps = !isiOSAppOnMac;
+    pGpuDesc->mPlacementHeaps = !isiOSAppOnMac;
 #else
-    pOutSettings->mIsHeadLess = [gpu isHeadless];
-    pOutSettings->mMaxBoundTextures = 128;
-    pOutSettings->mHeaps = [gpu isLowPower] ? 0 : 1;
+    pGpuDesc->mIsHeadLess = [gpu isHeadless];
+    pGpuDesc->mMaxBoundTextures = 128;
+    pGpuDesc->mHeaps = [gpu isLowPower] ? 0 : 1;
 #endif
 
-    pOutSettings->mAllowBufferTextureInSameHeap = true;
-    pOutSettings->mTimestampQueries = true;
-    pOutSettings->mOcclusionQueries = false;
-    pOutSettings->mPipelineStatsQueries = false;
-    pOutSettings->mGpuMarkers = true;
+    pGpuDesc->mAllowBufferTextureInSameHeap = true;
+    pGpuDesc->mTimestampQueries = true;
+    pGpuDesc->mOcclusionQueries = false;
+    pGpuDesc->mPipelineStatsQueries = false;
+    pGpuDesc->mGpuMarkers = true;
 
     const MTLSize maxThreadsPerThreadgroup = [gpu maxThreadsPerThreadgroup];
-    pOutSettings->mMaxTotalComputeThreads = (uint32_t)maxThreadsPerThreadgroup.width;
-    pOutSettings->mMaxComputeThreads[0] = (uint32_t)maxThreadsPerThreadgroup.width;
-    pOutSettings->mMaxComputeThreads[1] = (uint32_t)maxThreadsPerThreadgroup.height;
-    pOutSettings->mMaxComputeThreads[2] = (uint32_t)maxThreadsPerThreadgroup.depth;
+    pGpuDesc->mMaxTotalComputeThreads = (uint32_t)maxThreadsPerThreadgroup.width;
+    pGpuDesc->mMaxComputeThreads[0] = (uint32_t)maxThreadsPerThreadgroup.width;
+    pGpuDesc->mMaxComputeThreads[1] = (uint32_t)maxThreadsPerThreadgroup.height;
+    pGpuDesc->mMaxComputeThreads[2] = (uint32_t)maxThreadsPerThreadgroup.depth;
 
     // Features
     // https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
-    pOutSettings->mROVsSupported = [gpu areRasterOrderGroupsSupported];
-    pOutSettings->mTessellationSupported = true;
-    pOutSettings->mGeometryShaderSupported = false;
-    pOutSettings->mWaveLaneCount = queryThreadExecutionWidth(gpu);
+    pGpuDesc->mROVsSupported = [gpu areRasterOrderGroupsSupported];
+    pGpuDesc->mTessellationSupported = true;
+    pGpuDesc->mGeometryShaderSupported = false;
+    pGpuDesc->mWaveLaneCount = queryThreadExecutionWidth(gpu);
 
     // Note: With enabled Shader Validation we are getting no performance benefit for stencil samples other than
     // first even if stencil test for those samples was failed
-    pOutSettings->mSoftwareVRSSupported = [gpu areProgrammableSamplePositionsSupported];
+    pGpuDesc->mSoftwareVRSSupported = [gpu areProgrammableSamplePositionsSupported];
 
     // Wave ops crash the compiler if not supported by gpu
-    pOutSettings->mWaveOpsSupportFlags = WAVE_OPS_SUPPORT_FLAG_NONE;
-    pOutSettings->mWaveOpsSupportedStageFlags = SHADER_STAGE_NONE;
-    pOutSettings->mIndirectCommandBuffer = false;
-    pOutSettings->mTessellationIndirectDrawSupported = false;
-    pOutSettings->mCubeMapTextureArraySupported = false;
-    pOutSettings->mPrimitiveIdSupported = false;
+    pGpuDesc->mWaveOpsSupportFlags = WAVE_OPS_SUPPORT_FLAG_NONE;
+    pGpuDesc->mWaveOpsSupportedStageFlags = SHADER_STAGE_NONE;
+    pGpuDesc->mIndirectCommandBuffer = false;
+    pGpuDesc->mTessellationIndirectDrawSupported = false;
+    pGpuDesc->mCubeMapTextureArraySupported = false;
+    pGpuDesc->mPrimitiveIdSupported = false;
     MTLGPUFamily highestAppleFamily = MTLGPUFamilyApple1;
     int          currentFamily = HIGHEST_GPU_FAMILY;
     for (; currentFamily >= (int)MTLGPUFamilyApple1; currentFamily--)
@@ -2135,37 +2135,37 @@ static void QueryGPUSettings(GpuInfo* gpuInfo, GPUSettings* pOutSettings)
     }
     if (highestAppleFamily >= MTLGPUFamilyApple3)
     {
-        pOutSettings->mIndirectCommandBuffer = true;
+        pGpuDesc->mIndirectCommandBuffer = true;
 #ifdef TARGET_IOS
-        pOutSettings->mDrawIndexVertexOffsetSupported = true;
+        pGpuDesc->mDrawIndexVertexOffsetSupported = true;
 #endif
     }
     if (highestAppleFamily >= MTLGPUFamilyApple4)
     {
-        pOutSettings->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_QUAD_BIT;
-        pOutSettings->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG;
-        pOutSettings->mMaxBoundTextures = 96;
-        pOutSettings->mCubeMapTextureArraySupported = true;
+        pGpuDesc->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_QUAD_BIT;
+        pGpuDesc->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG;
+        pGpuDesc->mMaxBoundTextures = 96;
+        pGpuDesc->mCubeMapTextureArraySupported = true;
     }
     if (highestAppleFamily >= MTLGPUFamilyApple5)
     {
-        pOutSettings->mTessellationIndirectDrawSupported = true;
+        pGpuDesc->mTessellationIndirectDrawSupported = true;
     }
 #ifdef ENABLE_GPU_FAMILY_6
     if (highestAppleFamily >= MTLGPUFamilyApple6)
     {
-        pOutSettings->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_BASIC_BIT | WAVE_OPS_SUPPORT_FLAG_VOTE_BIT |
-                                              WAVE_OPS_SUPPORT_FLAG_BALLOT_BIT | WAVE_OPS_SUPPORT_FLAG_SHUFFLE_BIT |
-                                              WAVE_OPS_SUPPORT_FLAG_SHUFFLE_RELATIVE_BIT;
-        pOutSettings->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
+        pGpuDesc->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_BASIC_BIT | WAVE_OPS_SUPPORT_FLAG_VOTE_BIT |
+                                          WAVE_OPS_SUPPORT_FLAG_BALLOT_BIT | WAVE_OPS_SUPPORT_FLAG_SHUFFLE_BIT |
+                                          WAVE_OPS_SUPPORT_FLAG_SHUFFLE_RELATIVE_BIT;
+        pGpuDesc->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
     }
 #endif // ENABLE_GPU_FAMILY_6
 #ifdef ENABLE_GPU_FAMILY_7
     if (highestAppleFamily >= MTLGPUFamilyApple7)
     {
-        pOutSettings->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_ARITHMETIC_BIT;
-        pOutSettings->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
-        pOutSettings->mPrimitiveIdSupported = true;
+        pGpuDesc->mWaveOpsSupportFlags |= WAVE_OPS_SUPPORT_FLAG_ARITHMETIC_BIT;
+        pGpuDesc->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
+        pGpuDesc->mPrimitiveIdSupported = true;
     }
 #endif // ENABLE_GPU_FAMILY_7
 #ifdef ENABLE_GPU_FAMILY_8
@@ -2175,58 +2175,58 @@ static void QueryGPUSettings(GpuInfo* gpuInfo, GPUSettings* pOutSettings)
 #endif // ENABLE_GPU_FAMILY_8
     if ([gpu supportsFamily:MTLGPUFamilyMac2])
     {
-        pOutSettings->mIndirectCommandBuffer = true;
-        pOutSettings->mWaveOpsSupportFlags = WAVE_OPS_SUPPORT_FLAG_ALL;
-        pOutSettings->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
-        pOutSettings->mTessellationIndirectDrawSupported = true;
-        pOutSettings->mPlacementHeaps = pOutSettings->mHeaps ? 1 : 0;
-        pOutSettings->mCubeMapTextureArraySupported = true;
-        pOutSettings->mPrimitiveIdSupported = true;
+        pGpuDesc->mIndirectCommandBuffer = true;
+        pGpuDesc->mWaveOpsSupportFlags = WAVE_OPS_SUPPORT_FLAG_ALL;
+        pGpuDesc->mWaveOpsSupportedStageFlags |= SHADER_STAGE_FRAG | SHADER_STAGE_COMP;
+        pGpuDesc->mTessellationIndirectDrawSupported = true;
+        pGpuDesc->mPlacementHeaps = pGpuDesc->mHeaps ? 1 : 0;
+        pGpuDesc->mCubeMapTextureArraySupported = true;
+        pGpuDesc->mPrimitiveIdSupported = true;
     }
 
     MTLArgumentBuffersTier abTier = gpu.argumentBuffersSupport;
 
     if (abTier == MTLArgumentBuffersTier2)
     {
-        pOutSettings->mMaxBoundTextures = 1000000;
+        pGpuDesc->mMaxBoundTextures = 1000000;
     }
 
 #if defined(MTL_RAYTRACING_AVAILABLE)
     if (MTL_RAYTRACING_SUPPORTED)
     {
-        pOutSettings->mRayQuerySupported = [gpu supportsRaytracing];
-        pOutSettings->mRayPipelineSupported = false;
-        pOutSettings->mRaytracingSupported = pOutSettings->mRayQuerySupported || pOutSettings->mRayPipelineSupported;
+        pGpuDesc->mRayQuerySupported = [gpu supportsRaytracing];
+        pGpuDesc->mRayPipelineSupported = false;
+        pGpuDesc->mRaytracingSupported = pGpuDesc->mRayQuerySupported || pGpuDesc->mRayPipelineSupported;
     }
 #endif
 
 #ifdef ENABLE_GPU_FAMILY_9
-    pOutSettings->m64BitAtomicsSupported = [gpuInfo->pGPU supportsFamily:MTLGPUFamilyApple9];
+    pGpuDesc->m64BitAtomicsSupported = [pGpuDesc->pGPU supportsFamily:MTLGPUFamilyApple9];
 #endif // ENABLE_GPU_FAMILY_9
 #ifdef ENABLE_GPU_FAMILY_8
-    if ([gpuInfo->pGPU supportsFamily:MTLGPUFamilyApple8] && [gpuInfo->pGPU supportsFamily:MTLGPUFamilyMac2])
+    if ([pGpuDesc->pGPU supportsFamily:MTLGPUFamilyApple8] && [pGpuDesc->pGPU supportsFamily:MTLGPUFamilyMac2])
     {
-        pOutSettings->m64BitAtomicsSupported = true;
+        pGpuDesc->m64BitAtomicsSupported = true;
     }
 #endif // ENABLE_GPU_FAMILY_8
 
     // Get the supported counter set.
     // We only support timestamps at stage boundary..
-    gpuInfo->pCounterSetTimestamp = util_get_counterset(gpu);
-    gpuInfo->mCounterTimestampEnabled = gpuInfo->pCounterSetTimestamp != nil;
+    pGpuDesc->pCounterSetTimestamp = util_get_counterset(gpu);
+    pGpuDesc->mCounterTimestampEnabled = pGpuDesc->pCounterSetTimestamp != nil;
 }
 
 static bool SelectBestGpu(const RendererDesc* settings, Renderer* pRenderer)
 {
     RendererContext* pContext = pRenderer->pContext;
-    const GpuInfo*   gpus = pContext->mGpus;
+    const GpuDesc*   gpus = pContext->mGpus;
     uint32_t         gpuCount = pContext->mGpuCount;
     uint32_t         gpuIndex = settings->pContext ? settings->mGpuIndex : UINT32_MAX;
 
-    GPUSettings gpuSettings[MAX_MULTIPLE_GPUS] = {};
+    GpuDesc gpuDesc[MAX_MULTIPLE_GPUS] = {};
     for (uint32_t i = 0; i < gpuCount; i++)
     {
-        gpuSettings[i] = gpus[i].mSettings;
+        gpuDesc[i] = gpus[i];
     }
 
 #ifdef TARGET_IOS
@@ -2243,7 +2243,7 @@ static bool SelectBestGpu(const RendererDesc* settings, Renderer* pRenderer)
 #if defined(AUTOMATED_TESTING) && defined(ACTIVE_TESTING_GPU)
     selectActiveGpu(gpuSettings, &gpuIndex, gpuCount);
 #else
-    gpuIndex = util_select_best_gpu(gpuSettings, pContext->mGpuCount);
+    gpuIndex = util_select_best_gpu(gpuDesc, pContext->mGpuCount);
 #endif
 #endif
 
@@ -2260,14 +2260,14 @@ static bool SelectBestGpu(const RendererDesc* settings, Renderer* pRenderer)
     pRenderer->mLinkedNodeCount = 1;
 
     LOGF(LogLevel::eINFO, "GPU[%d] is selected as default GPU", gpuIndex);
-    LOGF(LogLevel::eINFO, "Name of selected gpu: %s", pRenderer->pGpu->mSettings.mGpuVendorPreset.mGpuName);
-    LOGF(LogLevel::eINFO, "Vendor id of selected gpu: %#x", pRenderer->pGpu->mSettings.mGpuVendorPreset.mVendorId);
-    LOGF(LogLevel::eINFO, "Model id of selected gpu: %#x", pRenderer->pGpu->mSettings.mGpuVendorPreset.mModelId);
-    LOGF(LogLevel::eINFO, "Preset of selected gpu: %s", presetLevelToString(pRenderer->pGpu->mSettings.mGpuVendorPreset.mPresetLevel));
+    LOGF(LogLevel::eINFO, "Name of selected gpu: %s", pRenderer->pGpu->mGpuVendorPreset.mGpuName);
+    LOGF(LogLevel::eINFO, "Vendor id of selected gpu: %#x", pRenderer->pGpu->mGpuVendorPreset.mVendorId);
+    LOGF(LogLevel::eINFO, "Model id of selected gpu: %#x", pRenderer->pGpu->mGpuVendorPreset.mModelId);
+    LOGF(LogLevel::eINFO, "Preset of selected gpu: %s", presetLevelToString(pRenderer->pGpu->mGpuVendorPreset.mPresetLevel));
 
     MTLArgumentBuffersTier abTier = pRenderer->pDevice.argumentBuffersSupport;
     LOGF(LogLevel::eINFO, "Metal: Argument Buffer Tier: %lu", abTier);
-    LOGF(LogLevel::eINFO, "Metal: Max Arg Buffer Textures: %u", pRenderer->pGpu->mSettings.mMaxBoundTextures);
+    LOGF(LogLevel::eINFO, "Metal: Max Arg Buffer Textures: %u", pRenderer->pGpu->mMaxBoundTextures);
 
     return true;
 }
@@ -2297,21 +2297,20 @@ void initRendererContext(const char* appName, const RendererContextDesc* pDesc, 
 
     for (uint32_t i = 0; i < TF_ARRAY_COUNT(pContext->mGpus); ++i)
     {
-        setDefaultGPUSettings(&pContext->mGpus[i].mSettings);
+        setDefaultGPUProperties(&pContext->mGpus[i]);
     }
 
     pContext->mGpuCount = gpuCount;
     for (uint32_t i = 0; i < gpuCount; ++i)
     {
         pContext->mGpus[i].pGPU = gpus[i];
-        QueryGPUSettings(&pContext->mGpus[i], &pContext->mGpus[i].mSettings);
-        mtlCapsBuilder(pContext->mGpus[i].pGPU, &pContext->mGpus[i].mCapBits);
-        applyGPUConfigurationRules(&pContext->mGpus[i].mSettings, &pContext->mGpus[i].mCapBits);
+        QueryGpuDesc(&pContext->mGpus[i]);
+        mtlCapsBuilder(pContext->mGpus[i].pGPU, &pContext->mGpus[i]);
+        applyGPUConfigurationRules(&pContext->mGpus[i]);
 
         LOGF(LogLevel::eINFO, "GPU[%i] detected. Vendor ID: %#x, Model ID: %#x, Preset: %s, GPU Name: %s", i,
-             pContext->mGpus[i].mSettings.mGpuVendorPreset.mVendorId, pContext->mGpus[i].mSettings.mGpuVendorPreset.mModelId,
-             presetLevelToString(pContext->mGpus[i].mSettings.mGpuVendorPreset.mPresetLevel),
-             pContext->mGpus[i].mSettings.mGpuVendorPreset.mGpuName);
+             pContext->mGpus[i].mGpuVendorPreset.mVendorId, pContext->mGpus[i].mGpuVendorPreset.mModelId,
+             presetLevelToString(pContext->mGpus[i].mGpuVendorPreset.mPresetLevel), pContext->mGpus[i].mGpuVendorPreset.mGpuName);
     }
 
     *ppContext = pContext;
@@ -2350,19 +2349,19 @@ void initRenderer(const char* appName, const RendererDesc* settings, Renderer** 
     {
         SelectBestGpu(settings, pRenderer);
 
-        LOGF(LogLevel::eINFO, "Metal: Heaps: %s", pRenderer->pGpu->mSettings.mHeaps ? "true" : "false");
-        LOGF(LogLevel::eINFO, "Metal: Placement Heaps: %s", pRenderer->pGpu->mSettings.mPlacementHeaps ? "true" : "false");
+        LOGF(LogLevel::eINFO, "Metal: Heaps: %s", pRenderer->pGpu->mHeaps ? "true" : "false");
+        LOGF(LogLevel::eINFO, "Metal: Placement Heaps: %s", pRenderer->pGpu->mPlacementHeaps ? "true" : "false");
 
-        if (!pRenderer->pGpu->mSettings.mPlacementHeaps)
+        if (!pRenderer->pGpu->mPlacementHeaps)
         {
             pRenderer->pHeapMutex = (Mutex*)tf_malloc(sizeof(Mutex));
             initMutex(pRenderer->pHeapMutex);
         }
 
         // exit app if gpu being used has an office preset.
-        if (pRenderer->pGpu->mSettings.mGpuVendorPreset.mPresetLevel < GPU_PRESET_VERYLOW)
+        if (pRenderer->pGpu->mGpuVendorPreset.mPresetLevel < GPU_PRESET_VERYLOW)
         {
-            ASSERT(pRenderer->pGpu->mSettings.mGpuVendorPreset.mPresetLevel >= GPU_PRESET_VERYLOW);
+            ASSERT(pRenderer->pGpu->mGpuVendorPreset.mPresetLevel >= GPU_PRESET_VERYLOW);
 
             // set device to null
             pRenderer->pDevice = nil;
@@ -2381,7 +2380,7 @@ void initRenderer(const char* appName, const RendererDesc* settings, Renderer** 
         }
 
         // Create allocator
-        if (pRenderer->pGpu->mSettings.mPlacementHeaps)
+        if (pRenderer->pGpu->mPlacementHeaps)
         {
             VmaAllocatorCreateInfo createInfo = {};
             VmaVulkanFunctions     vulkanFunctions = {};
@@ -2429,7 +2428,7 @@ void initRenderer(const char* appName, const RendererDesc* settings, Renderer** 
 
     if (IOS14_RUNTIME)
     {
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_VALIDATION)
         pRenderer->pContext->mMtl.mExtendedEncoderDebugReport = true;
 #else
         pRenderer->pContext->mMtl.mExtendedEncoderDebugReport = settings->mEnableGpuBasedValidation;
@@ -2443,7 +2442,7 @@ void exitRenderer(Renderer* pRenderer)
 
     remove_default_resources(pRenderer);
 
-    if (pRenderer->pGpu->mSettings.mPlacementHeaps)
+    if (pRenderer->pGpu->mPlacementHeaps)
     {
         vmaDestroyAllocator(pRenderer->pVmaAllocator);
     }
@@ -2785,7 +2784,7 @@ void addResourceHeap(Renderer* pRenderer, const ResourceHeapDesc* pDesc, Resourc
     ASSERT(pDesc);
     ASSERT(ppHeap);
 
-    if (!pRenderer->pGpu->mSettings.mPlacementHeaps)
+    if (!pRenderer->pGpu->mPlacementHeaps)
     {
         return;
     }
@@ -2822,7 +2821,7 @@ void addResourceHeap(Renderer* pRenderer, const ResourceHeapDesc* pDesc, Resourc
 
 void removeResourceHeap(Renderer* pRenderer, ResourceHeap* pHeap)
 {
-    if (!pRenderer->pGpu->mSettings.mPlacementHeaps)
+    if (!pRenderer->pGpu->mPlacementHeaps)
     {
         return;
     }
@@ -2848,7 +2847,7 @@ void getBufferSizeAlign(Renderer* pRenderer, const BufferDesc* pDesc, ResourceSi
     // Align the buffer size to multiples of the dynamic uniform buffer minimum size
     if (pDesc->mDescriptors & DESCRIPTOR_TYPE_UNIFORM_BUFFER)
     {
-        const uint64_t minAlignment = pRenderer->pGpu->mSettings.mUniformBufferAlignment;
+        const uint64_t minAlignment = pRenderer->pGpu->mUniformBufferAlignment;
         allocationSize = round_up_64(allocationSize, minAlignment);
     }
 
@@ -2892,7 +2891,7 @@ void addBuffer(Renderer* pRenderer, const BufferDesc* pDesc, Buffer** ppBuffer)
     // Align the buffer size to multiples of the dynamic uniform buffer minimum size
     if (pDesc->mDescriptors & DESCRIPTOR_TYPE_UNIFORM_BUFFER)
     {
-        uint64_t minAlignment = pRenderer->pGpu->mSettings.mUniformBufferAlignment;
+        uint64_t minAlignment = pRenderer->pGpu->mUniformBufferAlignment;
         allocationSize = round_up_64(allocationSize, minAlignment);
         ((BufferDesc*)pDesc)->mAlignment = (uint32_t)minAlignment;
     }
@@ -2901,13 +2900,13 @@ void addBuffer(Renderer* pRenderer, const BufferDesc* pDesc, Buffer** ppBuffer)
     //	//There's currently an intel driver bug with placed resources so we need to create
     //	//new resources that are GPU only in their own memory space
     //	//0x8086 is intel vendor id
-    //	if (pRenderer->pGpu->mSettings.mGpuVendorPreset.mVendorId == GPU_VENDOR_INTEL &&
+    //	if (pRenderer->pGpu->mGpuVendorPreset.mVendorId == GPU_VENDOR_INTEL &&
     //		(ResourceMemoryUsage)pDesc->mMemoryUsage & RESOURCE_MEMORY_USAGE_GPU_ONLY)
     //		((BufferDesc*)pDesc)->mFlags |= BUFFER_CREATION_FLAG_OWN_MEMORY_BIT;
 
     // Indirect command buffer does not need backing buffer memory
     // Directly allocated through device
-    if (pRenderer->pGpu->mSettings.mIndirectCommandBuffer && (pDesc->mDescriptors & DESCRIPTOR_TYPE_INDIRECT_COMMAND_BUFFER))
+    if (pRenderer->pGpu->mIndirectCommandBuffer && (pDesc->mDescriptors & DESCRIPTOR_TYPE_INDIRECT_COMMAND_BUFFER))
     {
         MTLIndirectCommandBufferDescriptor* icbDescriptor = [MTLIndirectCommandBufferDescriptor alloc];
 
@@ -2931,15 +2930,15 @@ void addBuffer(Renderer* pRenderer, const BufferDesc* pDesc, Buffer** ppBuffer)
                                                                                              options:0];
     }
 
-    if (pDesc->pPlacement && pRenderer->pGpu->mSettings.mPlacementHeaps)
+    if (pDesc->pPlacement && pRenderer->pGpu->mPlacementHeaps)
     {
         pBuffer->pBuffer = [pDesc->pPlacement->pHeap->pHeap newBufferWithLength:allocationSize
                                                                         options:resourceOptions
                                                                          offset:pDesc->pPlacement->mOffset];
     }
 
-    if (!pBuffer->pBuffer && (!pRenderer->pGpu->mSettings.mHeaps || (RESOURCE_MEMORY_USAGE_GPU_ONLY != pDesc->mMemoryUsage &&
-                                                                     RESOURCE_MEMORY_USAGE_CPU_TO_GPU != pDesc->mMemoryUsage)))
+    if (!pBuffer->pBuffer && (!pRenderer->pGpu->mHeaps || (RESOURCE_MEMORY_USAGE_GPU_ONLY != pDesc->mMemoryUsage &&
+                                                           RESOURCE_MEMORY_USAGE_CPU_TO_GPU != pDesc->mMemoryUsage)))
     {
         pBuffer->pBuffer = [pRenderer->pDevice newBufferWithLength:allocationSize options:resourceOptions];
     }
@@ -2959,7 +2958,7 @@ void addBuffer(Renderer* pRenderer, const BufferDesc* pDesc, Buffer** ppBuffer)
 
         if (canUseHeaps)
         {
-            if (pRenderer->pGpu->mSettings.mPlacementHeaps)
+            if (pRenderer->pGpu->mPlacementHeaps)
             {
                 VmaAllocationInfo allocInfo =
                     util_render_alloc(pRenderer, pDesc->mMemoryUsage, memoryType, sizeAlign.size, sizeAlign.align, &pBuffer->pAllocation);
@@ -2999,7 +2998,7 @@ void addBuffer(Renderer* pRenderer, const BufferDesc* pDesc, Buffer** ppBuffer)
     pBuffer->mMemoryUsage = pDesc->mMemoryUsage;
     pBuffer->mNodeIndex = pDesc->mNodeIndex;
     pBuffer->mDescriptors = pDesc->mDescriptors;
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pDesc->pName)
     {
         setBufferName(pRenderer, pBuffer, pDesc->pName);
@@ -3211,7 +3210,9 @@ void addShaderBinary(Renderer* pRenderer, const BinaryShaderDesc* pDesc, Shader*
     pShaderProgram->mStages = pDesc->mStages;
     pShaderProgram->pReflection = (PipelineReflection*)(pShaderProgram + 1);
 
-    uint32_t reflectionCount = 0;
+    uint32_t         reflectionCount = 0;
+    ShaderReflection stageReflections[SHADER_STAGE_COUNT] = {};
+
     for (uint32_t i = 0; i < SHADER_STAGE_COUNT; ++i)
     {
         ShaderStage                  stage_mask = (ShaderStage)(1 << i);
@@ -3269,24 +3270,22 @@ void addShaderBinary(Renderer* pRenderer, const BinaryShaderDesc* pDesc, Shader*
 
             *compiled_code = function;
 
-            mtl_addShaderReflection(pRenderer, pShaderProgram, stage_mask,
-                                    &pShaderProgram->pReflection->mStageReflections[reflectionCount++]);
+            mtl_addShaderReflection(pRenderer, pShaderProgram, stage_mask, &stageReflections[reflectionCount++]);
 
             if (pShaderProgram->mStages & SHADER_STAGE_FRAG)
             {
-                pShaderProgram->pReflection->mStageReflections[reflectionCount].mOutputRenderTargetTypesMask =
-                    pDesc->mFrag.mOutputRenderTargetTypesMask;
+                stageReflections[reflectionCount].mOutputRenderTargetTypesMask = pDesc->mFrag.mOutputRenderTargetTypesMask;
             }
         }
     }
 
-    addPipelineReflection(pShaderProgram->pReflection->mStageReflections, reflectionCount, pShaderProgram->pReflection);
+    addPipelineReflection(stageReflections, reflectionCount, pShaderProgram->pReflection);
 
     if (pShaderProgram->mStages & SHADER_STAGE_COMP)
     {
         for (size_t i = 0; i < 3; ++i)
         {
-            pShaderProgram->pReflection->mStageReflections[0].mNumThreadsPerGroup[i] = pDesc->mComp.mNumThreadsPerGroup[i];
+            pShaderProgram->pReflection->mNumThreadsPerGroup[i] = pDesc->mComp.mNumThreadsPerGroup[i];
             pShaderProgram->mNumThreadsPerGroup[i] = pDesc->mComp.mNumThreadsPerGroup[i];
             // ASSERT(pShaderProgram->mNumThreadsPerGroup[i]);
         }
@@ -3295,6 +3294,11 @@ void addShaderBinary(Renderer* pRenderer, const BinaryShaderDesc* pDesc, Shader*
     if (pShaderProgram->pVertexShader)
     {
         pShaderProgram->mTessellation = pShaderProgram->pVertexShader.patchType != MTLPatchTypeNone;
+    }
+
+    for (uint32_t i = 0; i < pShaderProgram->pReflection->mStageReflectionCount; ++i)
+    {
+        removeShaderReflection(&stageReflections[i]);
     }
 
     *ppShaderProgram = pShaderProgram;
@@ -3792,7 +3796,7 @@ void addGraphicsPipelineImpl(Renderer* pRenderer, const char* pName, const Graph
 #endif
     }
 
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pName)
     {
         renderPipelineDesc.label = [NSString stringWithUTF8String:pName];
@@ -3855,7 +3859,7 @@ void addComputePipelineImpl(Renderer* pRenderer, const char* pName, const Comput
 
     MTLComputePipelineDescriptor* pipelineDesc = [[MTLComputePipelineDescriptor alloc] init];
     pipelineDesc.computeFunction = pDesc->pShaderProgram->pComputeShader;
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pName)
     {
         pipelineDesc.label = [NSString stringWithUTF8String:pName];
@@ -3950,7 +3954,7 @@ void beginCmd(Cmd* pCmd)
         pCmd->pBlitEncoder = nil;
         pCmd->pBoundPipeline = NULL;
         pCmd->mBoundIndexBuffer = nil;
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
         pCmd->mDebugMarker[0] = '\0';
 #endif
 
@@ -4159,11 +4163,19 @@ void cmdBindRenderTargets(Cmd* pCmd, const BindRenderTargetsDesc* pDesc)
             renderPassDesc.stencilAttachment.storeAction = MTLStoreActionDontCare;
         }
 
-        if (pCmd->mSampleLocationsCount > 0 && pDesc->mRenderTargetCount > 0)
+        SampleCount sampleCount = pDesc->mRenderTargetCount > 0 ? pDesc->mRenderTargets[0].pRenderTarget->mSampleCount : SAMPLE_COUNT_1;
+        uint32_t    sampleLocationsCount = pDesc->mSampleLocation.mGridSizeX * pDesc->mSampleLocation.mGridSizeY * sampleCount;
+        ASSERT(sampleLocationsCount < MAX_SAMPLE_LOCATIONS);
+        if (sampleLocationsCount > 0)
         {
-            if (pDesc->mRenderTargets[0].pRenderTarget->mSampleCount > SAMPLE_COUNT_1)
+            MTLSamplePosition samplePositions[MAX_SAMPLE_LOCATIONS];
+            for (uint32_t i = 0; i < sampleLocationsCount; i++)
             {
-                [renderPassDesc setSamplePositions:pCmd->mSamplePositions count:pCmd->mSampleLocationsCount];
+                samplePositions[i] = util_to_mtl_locations(pDesc->mSampleLocation.pLocations[i]);
+            }
+            if (sampleCount > SAMPLE_COUNT_1)
+            {
+                [renderPassDesc setSamplePositions:samplePositions count:sampleLocationsCount];
             }
         }
 
@@ -4202,7 +4214,7 @@ void cmdBindRenderTargets(Cmd* pCmd, const BindRenderTargetsDesc* pDesc)
         util_end_current_encoders(pCmd, false);
         pCmd->pRenderEncoder = [pCmd->pCommandBuffer renderCommandEncoderWithDescriptor:renderPassDesc];
 
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
         util_set_debug_group(pCmd);
         if (pCmd->mDebugMarker[0])
         {
@@ -4214,20 +4226,6 @@ void cmdBindRenderTargets(Cmd* pCmd, const BindRenderTargetsDesc* pDesc)
 
         util_set_heaps_graphics(pCmd);
     }
-}
-
-// Note: setSamplePositions in Metal is incosistent with other APIs: it cannot be called inside the renderpass
-void cmdSetSampleLocations(Cmd* pCmd, SampleCount samples_count, uint32_t grid_size_x, uint32_t grid_size_y, SampleLocations* locations)
-{
-    uint32_t sampleLocationsCount = samples_count * grid_size_x * grid_size_y;
-    ASSERT(sampleLocationsCount <= MAX_SAMPLE_LOCATIONS);
-
-    for (int i = 0; i < sampleLocationsCount; ++i)
-    {
-        pCmd->mSamplePositions[i] = util_to_mtl_locations(locations[i]);
-        ;
-    }
-    pCmd->mSampleLocationsCount = sampleLocationsCount;
 }
 
 void cmdSetViewport(Cmd* pCmd, float x, float y, float width, float height, float minDepth, float maxDepth)
@@ -4348,7 +4346,7 @@ void cmdBindPipeline(Cmd* pCmd, Pipeline* pPipeline)
 
                     util_end_current_encoders(pCmd, barrierRequired);
                     pCmd->pComputeEncoder = [pCmd->pCommandBuffer computeCommandEncoderWithDescriptor:computePassDescriptor];
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
                     util_set_debug_group(pCmd);
                     if (pCmd->mDebugMarker[0])
                     {
@@ -4536,7 +4534,7 @@ void cmdDrawIndexed(Cmd* pCmd, uint32_t indexCount, uint32_t firstIndex, uint32_
         else
         {
             // sizeof can't be applied to bitfield.
-            ASSERT((bool)pCmd->pRenderer->pGpu->mSettings.mDrawIndexVertexOffsetSupported);
+            ASSERT((bool)pCmd->pRenderer->pGpu->mDrawIndexVertexOffsetSupported);
             [pCmd->pRenderEncoder drawIndexedPrimitives:(MTLPrimitiveType)pCmd->mSelectedPrimitiveType
                                              indexCount:indexCount
                                               indexType:indexType
@@ -4693,7 +4691,7 @@ void cmdExecuteIndirect(Cmd* pCmd, IndirectArgumentType type, uint maxCommandCou
 
     RebindState(pCmd);
 
-    if (pCmd->pRenderer->pGpu->mSettings.mIndirectCommandBuffer)
+    if (pCmd->pRenderer->pGpu->mIndirectCommandBuffer)
     {
         uint64_t rangeOffset = bufferOffset;
 
@@ -4753,7 +4751,7 @@ void cmdExecuteIndirect(Cmd* pCmd, IndirectArgumentType type, uint maxCommandCou
         }
         else // Tessellated indirect draw version.
         {
-            ASSERT((bool)pCmd->pRenderer->pGpu->mSettings.mTessellationIndirectDrawSupported);
+            ASSERT((bool)pCmd->pRenderer->pGpu->mTessellationIndirectDrawSupported);
             for (uint32_t i = 0; i < maxCommandCount; i++)
             {
                 uint64_t indirectBufferOffset = bufferOffset + stride * i;
@@ -4785,7 +4783,7 @@ void cmdExecuteIndirect(Cmd* pCmd, IndirectArgumentType type, uint maxCommandCou
         }
         else // Tessellated indirect draw version.
         {
-            ASSERT((bool)pCmd->pRenderer->pGpu->mSettings.mTessellationIndirectDrawSupported);
+            ASSERT((bool)pCmd->pRenderer->pGpu->mTessellationIndirectDrawSupported);
             for (uint32_t i = 0; i < maxCommandCount; ++i)
             {
                 id       indexBuffer = pCmd->mBoundIndexBuffer;
@@ -5035,7 +5033,7 @@ void queueSubmit(Queue* pQueue, const QueueSubmitDesc* pDesc)
         if (waitCommandBufferRequired)
         {
             id<MTLCommandBuffer> waitCommandBuffer = [pQueue->pCommandQueue commandBufferWithUnretainedReferences];
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
             waitCommandBuffer.label = @"WAIT_COMMAND_BUFFER";
 #endif
             for (uint32_t i = 0; i < waitSemaphoreCount; ++i)
@@ -5151,22 +5149,29 @@ void getRawTextureHandle(Renderer* pRenderer, Texture* pTexture, void** ppHandle
 /************************************************************************/
 void cmdBeginDebugMarker(Cmd* pCmd, float r, float g, float b, const char* pName)
 {
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     snprintf(pCmd->mDebugMarker, MAX_DEBUG_NAME_LENGTH, "%s", pName);
     util_set_debug_group(pCmd);
 #endif
 }
 
-void cmdEndDebugMarker(Cmd* pCmd) { util_unset_debug_group(pCmd); }
+void cmdEndDebugMarker(Cmd* pCmd)
+{
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
+    util_unset_debug_group(pCmd);
+#endif
+}
 
 void cmdAddDebugMarker(Cmd* pCmd, float r, float g, float b, const char* pName)
 {
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pCmd->pRenderEncoder)
         [pCmd->pRenderEncoder insertDebugSignpost:[NSString stringWithFormat:@"%s", pName]];
     else if (pCmd->pComputeEncoder)
         [pCmd->pComputeEncoder insertDebugSignpost:[NSString stringWithFormat:@"%s", pName]];
     else if (pCmd->pBlitEncoder)
         [pCmd->pBlitEncoder insertDebugSignpost:[NSString stringWithFormat:@"%s", pName]];
+#endif
 }
 
 void cmdWriteMarker(Cmd* pCmd, const MarkerDesc* pDesc)
@@ -5210,7 +5215,7 @@ void initQueryPool(Renderer* pRenderer, const QueryPoolDesc* pDesc, QueryPool** 
         return;
     }
 
-    if (!pRenderer->pGpu->mSettings.mTimestampQueries)
+    if (!pRenderer->pGpu->mTimestampQueries)
     {
         ASSERT(false && "Not supported");
         return;
@@ -5409,7 +5414,7 @@ void setBufferName(Renderer* pRenderer, Buffer* pBuffer, const char* pName)
     ASSERT(pBuffer);
     ASSERT(pName);
 
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pBuffer->pBuffer)
     {
         NSString* str = [NSString stringWithUTF8String:pName];
@@ -5434,7 +5439,7 @@ void setTextureName(Renderer* pRenderer, Texture* pTexture, const char* pName)
     ASSERT(pTexture);
     ASSERT(pName);
 
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     NSString* str = [NSString stringWithUTF8String:pName];
     pTexture->pTexture.label = str;
 #endif
@@ -5804,7 +5809,7 @@ void util_barrier_required(Cmd* pCmd, const QueueType& encoderType)
 
 void util_set_debug_group(Cmd* pCmd)
 {
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pCmd->mDebugMarker[0] == '\0')
     {
         return;
@@ -5826,7 +5831,7 @@ void util_set_debug_group(Cmd* pCmd)
 
 void util_unset_debug_group(Cmd* pCmd)
 {
-#ifdef ENABLE_GRAPHICS_DEBUG
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     pCmd->mDebugMarker[0] = '\0';
     if (nil != pCmd->pRenderEncoder)
     {
@@ -5965,7 +5970,7 @@ void initialize_texture_desc(Renderer* pRenderer, const TextureDesc* pDesc, cons
             }
             else
             {
-                ASSERT((bool)pRenderer->pGpu->mSettings.mCubeMapTextureArraySupported);
+                ASSERT((bool)pRenderer->pGpu->mCubeMapTextureArraySupported);
                 textureDesc.textureType = MTLTextureTypeCubeArray;
                 textureDesc.arrayLength /= 6;
             }
@@ -6040,8 +6045,7 @@ void add_texture(Renderer* pRenderer, const TextureDesc* pDesc, Texture** ppText
 
     MTLPixelFormat pixelFormat = (MTLPixelFormat)TinyImageFormat_ToMTLPixelFormat(pDesc->mFormat);
 
-    if (pDesc->mFormat == TinyImageFormat_D24_UNORM_S8_UINT &&
-        !(pRenderer->pGpu->mCapBits.mFormatCaps[pDesc->mFormat] & FORMAT_CAP_RENDER_TARGET))
+    if (pDesc->mFormat == TinyImageFormat_D24_UNORM_S8_UINT && !(pRenderer->pGpu->mFormatCaps[pDesc->mFormat] & FORMAT_CAP_RENDER_TARGET))
     {
         internal_log(eWARNING, "Format D24S8 is not supported on this device. Using D32S8 instead", "addTexture");
         pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
@@ -6096,26 +6100,26 @@ void add_texture(Renderer* pRenderer, const TextureDesc* pDesc, Texture** ppText
             pTexture->pTexture = [pRenderer->pDevice newTextureWithDescriptor:textureDesc];
             pTexture->mLazilyAllocated = true;
             ASSERT(pTexture->pTexture);
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
             setTextureName(pRenderer, pTexture, "Memoryless Texture");
 #endif
         }
 #endif
 
-        if (pDesc->pPlacement && pRenderer->pGpu->mSettings.mPlacementHeaps)
+        if (pDesc->pPlacement && pRenderer->pGpu->mPlacementHeaps)
         {
             pTexture->pTexture = [pDesc->pPlacement->pHeap->pHeap newTextureWithDescriptor:textureDesc offset:pDesc->pPlacement->mOffset];
         }
 
         if (!pTexture->pTexture)
         {
-            if (pRenderer->pGpu->mSettings.mHeaps)
+            if (pRenderer->pGpu->mHeaps)
             {
                 MTLSizeAndAlign sizeAlign = [pRenderer->pDevice heapTextureSizeAndAlignWithDescriptor:textureDesc];
                 bool            useHeapPlacementHeaps = false;
 
                 // Need to check mPlacementHeaps since it depends on gpu family as well as macOS/iOS version
-                if (pRenderer->pGpu->mSettings.mPlacementHeaps)
+                if (pRenderer->pGpu->mPlacementHeaps)
                 {
                     VmaAllocationInfo allocInfo = util_render_alloc(pRenderer, RESOURCE_MEMORY_USAGE_GPU_ONLY, memoryType, sizeAlign.size,
                                                                     sizeAlign.align, &pTexture->pAllocation);
@@ -6191,7 +6195,7 @@ void add_texture(Renderer* pRenderer, const TextureDesc* pDesc, Texture** ppText
     pTexture->mArraySizeMinusOne = pDesc->mArraySize - 1;
     pTexture->mFormat = pDesc->mFormat;
     pTexture->mSampleCount = pDesc->mSampleCount;
-#if defined(ENABLE_GRAPHICS_DEBUG)
+#if defined(ENABLE_GRAPHICS_DEBUG_ANNOTATION)
     if (pDesc->pName)
     {
         setTextureName(pRenderer, pTexture, pDesc->pName);

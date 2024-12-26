@@ -148,16 +148,6 @@ class WaveIntrinsics: public IApp
 public:
     bool Init()
     {
-        // FILE PATHS
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_SHADER_BINARIES, "CompiledShaders");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_GPU_CONFIG, "GPUCfg");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_TEXTURES, "Textures");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_FONTS, "Fonts");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_SCRIPTS, "Scripts");
-        fsSetPathForResourceDir(pSystemFileIO, RM_DEBUG, RD_SCREENSHOTS, "Screenshots");
-        fsSetPathForResourceDir(pSystemFileIO, RM_DEBUG, RD_DEBUG, "Debug");
-        fsSetPathForResourceDir(pSystemFileIO, RM_CONTENT, RD_OTHER_FILES, "");
-
         RendererDesc settings;
         memset(&settings, 0, sizeof(settings));
         settings.mShaderTarget = SHADER_TARGET_6_0;
@@ -171,14 +161,14 @@ public:
         }
         setupGPUConfigurationPlatformParameters(pRenderer, settings.pExtendedSettings);
 
-        const bool waveOpsSupported = (pRenderer->pGpu->mSettings.mWaveOpsSupportFlags & WAVE_OPS_SUPPORT_FLAG_BASIC_BIT);
+        const bool waveOpsSupported = (pRenderer->pGpu->mWaveOpsSupportFlags & WAVE_OPS_SUPPORT_FLAG_BASIC_BIT);
         if (!waveOpsSupported)
         {
             ShowUnsupportedMessage("GPU does not support wave ops");
             return false;
         }
 
-        const bool waveOpsStageSupported = (pRenderer->pGpu->mSettings.mWaveOpsSupportedStageFlags & SHADER_STAGE_FRAG);
+        const bool waveOpsStageSupported = (pRenderer->pGpu->mWaveOpsSupportedStageFlags & SHADER_STAGE_FRAG);
         if (!waveOpsStageSupported)
         {
             ShowUnsupportedMessage("GPU does not support wave ops on fragment stage");
@@ -299,7 +289,7 @@ public:
         // skip normal .. will be added last
         for (uint32_t i = 1; i < numMaxScripts; ++i)
         {
-            if ((pRenderer->pGpu->mSettings.mWaveOpsSupportFlags & gRequiredWaveFlags[i]) == gRequiredWaveFlags[i])
+            if ((pRenderer->pGpu->mWaveOpsSupportFlags & gRequiredWaveFlags[i]) == gRequiredWaveFlags[i])
             {
                 testScripts[numScripts++] = gTestScripts[i - 1];
             }
@@ -372,7 +362,7 @@ public:
 
             for (uint32_t i = 0; i < RenderModeCount; ++i)
             {
-                if ((pRenderer->pGpu->mSettings.mWaveOpsSupportFlags & gRequiredWaveFlags[i]) != gRequiredWaveFlags[i])
+                if ((pRenderer->pGpu->mWaveOpsSupportFlags & gRequiredWaveFlags[i]) != gRequiredWaveFlags[i])
                 {
                     continue;
                 }
@@ -492,7 +482,7 @@ public:
 
         float aspectRatio = (float)mSettings.mWidth / mSettings.mHeight;
         gSceneData.orthProjMatrix = mat4::orthographicLH(-1.0f * aspectRatio, 1.0f * aspectRatio, -1.0f, 1.0f, 0.0f, 1.0f);
-        gSceneData.laneSize = pRenderer->pGpu->mSettings.mWaveLaneCount;
+        gSceneData.laneSize = pRenderer->pGpu->mWaveLaneCount;
         gSceneData.time = currentTime;
         gSceneData.resolution.x = (float)(mSettings.mWidth);
         gSceneData.resolution.y = (float)(mSettings.mHeight);
@@ -686,7 +676,7 @@ public:
     {
         ShaderLoadDesc waveShader = {};
         waveShader.mVert.pFileName = "wave.vert";
-        auto waveFlags = pRenderer->pGpu->mSettings.mWaveOpsSupportFlags;
+        auto waveFlags = pRenderer->pGpu->mWaveOpsSupportFlags;
 
         if ((waveFlags & WAVE_OPS_SUPPORT_FLAG_BASIC_BIT) && (waveFlags & WAVE_OPS_SUPPORT_FLAG_ARITHMETIC_BIT) &&
             (waveFlags & WAVE_OPS_SUPPORT_FLAG_BALLOT_BIT) && (waveFlags & WAVE_OPS_SUPPORT_FLAG_QUAD_BIT))

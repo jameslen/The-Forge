@@ -102,6 +102,10 @@ enum
 #define ENABLE_RAYTRACING
 #endif
 
+#if defined(D3D12_WORKGRAPH_AVAILABLE)
+#define ENABLE_WORKGRAPH
+#endif
+
 #ifdef ENABLE_PROFILER
 #if defined(DIRECT3D12) || defined(VULKAN) || defined(DIRECT3D11) || defined(METAL) || defined(ORBIS) || defined(PROSPERO)
 #define ENABLE_GPU_PROFILER
@@ -110,13 +114,19 @@ enum
 
 // Enable graphics debug if general debug is turned on
 #ifdef FORGE_DEBUG
-#define ENABLE_GRAPHICS_DEBUG
+// Runtime checks by Forge itself
+#define ENABLE_GRAPHICS_RUNTIME_CHECK
+// Graphics API Validation
+#define ENABLE_GRAPHICS_VALIDATION
+// Object names, markers and labels
+#define ENABLE_GRAPHICS_DEBUG_ANNOTATION
 #endif
 
-#ifdef NSIGHT_AFTERMATH_AVAILABLE
-#ifdef FORGE_DEBUG
-// #define ENABLE_NSIGHT_AFTERMATH
-#endif
+#ifdef FORGE_PROFILE
+// If configuration is profile, this disables validation while keeping debug annotation on
+#undef ENABLE_GRAPHICS_RUNTIME_CHECK
+#undef ENABLE_GRAPHICS_VALIDATION
+#define ENABLE_GRAPHICS_DEBUG_ANNOTATION
 #endif
 
 #if (defined(DIRECT3D12) + defined(DIRECT3D11) + defined(VULKAN) + defined(METAL) + defined(ORBIS) + defined(PROSPERO) + defined(NX64)) == 0
@@ -146,8 +156,7 @@ enum
 
 // ------------------------------- gpu configuration rules ------------------------------- //
 
-struct GPUSettings;
-struct GPUCapBits;
+struct GpuDesc;
 struct Renderer;
 typedef struct ExtendedSettings
 {
@@ -175,26 +184,26 @@ FORGE_API void addGPUConfigurationRules(ExtendedSettings* pExtendedSettings);
 FORGE_API void removeGPUConfigurationRules();
 
 // set default value, samplerAnisotropySupported, graphicsQueueSupported, primitiveID
-FORGE_API void setDefaultGPUSettings(struct GPUSettings* pGpuSettings);
+FORGE_API void setDefaultGPUProperties(struct GpuDesc* pGpuDesc);
 
 // selects best gpu depending on the gpu comparison rules stored in gpu.cfg
-FORGE_API uint32_t util_select_best_gpu(struct GPUSettings* availableSettings, uint32_t gpuCount);
+FORGE_API uint32_t util_select_best_gpu(struct GpuDesc* availableSettings, uint32_t gpuCount);
 
 // reads the gpu data and sets the preset level of all available gpu's
 FORGE_API GPUPresetLevel getDefaultPresetLevel();
 FORGE_API GPUPresetLevel getGPUPresetLevel(uint32_t vendorId, uint32_t modelId, const char* vendorName, const char* modelName);
 
-// apply the configuration rules stored in gpu.cfg to to a single GPUSettings
-FORGE_API void applyGPUConfigurationRules(struct GPUSettings* pGpuSettings, struct GPUCapBits* pCapBits);
+// apply the configuration rules stored in gpu.cfg to to a single GPUSettings and GPUCapBits
+FORGE_API void applyGPUConfigurationRules(struct GpuDesc* pGpuSettings);
 
 // apply the user extended configuration rules stored in gpu.cfg to the ExtendedSetting structure
-FORGE_API void setupGPUConfigurationExtendedSettings(ExtendedSettings* pExtendedSettings, const struct GPUSettings* pGpuSettings);
+FORGE_API void setupGPUConfigurationExtendedSettings(ExtendedSettings* pExtendedSettings, const struct GpuDesc* pGpuDesc);
 FORGE_API void setupGPUConfigurationPlatformParameters(struct Renderer* pRenderer, ExtendedSettings* pExtendedSettings);
 FORGE_API void initGPUConfiguration(ExtendedSettings* pExtendedSettings);
 FORGE_API void exitGPUConfiguration();
 
-// return if the the GPUSettings validate the current driver rejection rules
-FORGE_API bool checkDriverRejectionSettings(const struct GPUSettings* pGpuSettings);
+// return if the the GpuDesc validate the current driver rejection rules
+FORGE_API bool checkDriverRejectionSettings(const struct GpuDesc* pGpuDesc);
 
 // ------ utilities ------
 FORGE_API const char*    presetLevelToString(GPUPresetLevel preset);
