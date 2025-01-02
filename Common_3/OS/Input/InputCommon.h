@@ -443,7 +443,8 @@ reload_shaders; button; K_LCTRL; pressed; cond; K_S; released
 exit; button; K_ESCAPE; released
 pt_x; analog; MOUSE_X; 1.0f
 pt_y; analog; MOUSE_Y; 1.0f
-pt_down; button; MOUSE_1; pressed)");
+pt_down; button; MOUSE_1; pressed
+pt_up; button; MOUSE_1; released)");
 
     // Gamepad
     inputAddCustomBindings(R"(
