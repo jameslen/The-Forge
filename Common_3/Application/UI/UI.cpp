@@ -2514,7 +2514,7 @@ bool platformInitUserInterface()
 
     ImGuiIO& io = ImGui::GetIO();
 
-    io.ConfigFlags = ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags = ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
 
     // Tell ImGui that we support ImDrawCmd::VtxOffset, otherwise ImGui will always set it to 0
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;
