@@ -50,16 +50,13 @@ The "lego" High-Level Features supported on all platforms are at the moment:
 - Fast Entity Component System based on [flecs](https://github.com/SanderMertens/flecs) 
 - Cross-platform FileSystem C API, supporting disk-based files, memory streams, and files in zip archives
 - UI system based on [Dear imGui](https://github.com/ocornut/imgui) extended for touch input devices
-- Shader Translator using a superset of HLSL as the shader language, called The Forge Shading Language. There is a Wiki page on [The Forge Shading Language](https://github.com/ConfettiFX/The-Forge/wiki/The-Forge-Shading-Language-(FSL))
+- Shader Translator using a superset of HLSL as the shader language, called The Forge Shading Language. There is a Wiki page on [The Forge Shading Language](https://github.com/ConfettiFX/The-Forge/wiki/FSL-Programming-Guide)
 - Various implementations of high-end Graphics Effects and game engine sub-systems as shown in the unit tests below
 
 Please find a link and credits for all open-source packages used at the end of this readme.
 
-<a href="https://discord.gg/hJS54bz" target="_blank"><img src="https://github.com/ConfettiFX/The-Forge-Media/blob/master/Screenshots/Discord.png" 
-alt="Twitter" width="20" height="20" border="0" /> Join the Discord channel at https://discord.gg/hJS54bz</a>
-
-<a href="https://twitter.com/TheForge_FX?lang=en" target="_blank"><img src="https://github.com/ConfettiFX/The-Forge-Media/blob/master/Screenshots/twitter.png" 
-alt="Twitter" width="20" height="20" border="0" /> Join the channel at https://twitter.com/TheForge_FX?lang=en</a>
+<a href="https://discord.gg/zxPRFzKGqD" target="_blank"><img src="https://github.com/ConfettiFX/The-Forge-Media/blob/master/Screenshots/Discord.png" 
+alt="Twitter" width="20" height="20" border="0" /> Join the Discord channel at https://discord.gg/zxPRFzKGqD</a>
 
 The Forge Interactive Inc. is a [Khronos member](https://www.khronos.org/members/list)
  
@@ -1341,14 +1338,12 @@ Here are screenshots of the Microprofiler running a unit test on iOS:
 
 ![Microprofiler](https://github.com/ConfettiFX/The-Forge-Media/blob/master/Screenshots/MicroProfiler/IMG_0006_iOS.PNG)
 
-Check out the [Wikipage](https://github.com/ConfettiFX/The-Forge/wiki/Microprofiler---How-to-Use) for an explanation on how to use it.
-
 ## Shader Translator
 We provide a shader translator, that translates one shader language -a superset of HLSL called Forge Shader Language (FLS) - to the target shader language of all our target platforms. That includes the console and mobile platforms as well.
 It is written in Python. We expect this shader translator to be an easier to maintain solution for smaller game teams because it allows to add additional data to the shader source file with less effort. Such data could be for example a bucket classification or different shaders for different capability levels of the underlying platform, descriptor memory requirements or resource memory requirements in general, material info or just information to easier pre-compile pipelines.
 The actual shader compilation will be done by the native compiler of the target platform.
 
- [How to use the Shader Translator](https://github.com/ConfettiFX/The-Forge/wiki/How-to-Use-The-Shader-Translator)
+ [How to use the Shader Translator](https://github.com/ConfettiFX/The-Forge/wiki/FSL-Programming-Guide)
 
 ## GPU Config System
 This is a general system that can track GPU capabilities on all platforms and switch on and off features of a game for different platforms. 
@@ -1717,7 +1712,3 @@ The Forge utilizes the following Open-Source libraries:
 * [HIDAPI](https://github.com/libusb/hidapi)
 * [bstrlib](https://github.com/websnarf/bstrlib)
 * [cr](https://github.com/fungos/cr)
-
-
-
-
